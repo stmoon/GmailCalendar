@@ -102,7 +102,7 @@ def find_data(dictionary, key_to_find, depth=0, result=None):
         return result
 
 def create_event(title, start_time_str, duration=None, attendees=None, description=None, location=None):
-    start_time_str = start_time_str.replace(" ", "").replace("년", "-").replace("월", "-").replace("일", " ").replace("시",":").replace("분","")
+    start_time_str = start_time_str.replace(u'\xa0', "").replace(" ", "").replace("년", "-").replace("월", "-").replace("일", " ").replace("시",":").replace("분","")
     matches = list(datefinder.find_dates(start_time_str))
     
     if duration is None :
@@ -144,13 +144,13 @@ def create_event(title, start_time_str, duration=None, attendees=None, descripti
     return event
 
 def parse_info_from_gmail(msg) :
-    pattern = {"제목:": "title",
-               "주제:": "title",
-               "장소:": "location",
-               "설명:": "description",
-               "시간:": "start_time",
-               "일시:": "start_time",
-               "기간:": "duration"
+    pattern = {"제목;": "title",
+               "주제;": "title",
+               "장소;": "location",
+               "설명;": "description",
+               "시간;": "start_time",
+               "일시;": "start_time",
+               "기간;": "duration"
                }
 
     info = dict()
@@ -212,7 +212,7 @@ def main():
                 msg_labels = {'addLabelIds': [], 'removeLabelIds': ['UNREAD']}
                 gmail_service.users().messages().modify(userId='me', id=message['id'], body=msg_labels).execute()
             except errors.HttpError as error:
-                print('An error occurred', error)
+                print('An error occurred #2', error)
                 continue
 
         time.sleep(10)
