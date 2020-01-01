@@ -13,16 +13,16 @@ import base64
 import time
 import email
 from apiclient import errors
-import datefinder
 import datetime
+import re
 
+
+
+CALENDAR_EVENT_SUBJECT = "!!일정!!"
 
 def create_calendar_service() :
     SCOPES = ['https://www.googleapis.com/auth/calendar']
 
-    """Shows basic usage of the Google Calendar API.
-    Prints the start and name of the next 10 events on the user's calendar.
-    """
     creds = None
     # The file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -101,15 +101,38 @@ def find_data(dictionary, key_to_find, depth=0, result=None):
     if depth == 0:
         return result
 
+
+def parse_time(str) :
+    year = re.findall('\s*(\d{1,4})년',str)
+    month = re.findall('\s*(\d{1,2})월', str)
+    day = re.findall('\s*(\d{1,2})일', str)
+    pm = re.findall('오후', str)
+    hour = re.findall('\s*(\d{1,2})시', str)
+    min = re.findall('\s*(\d{1,2})분', str)
+
+    if len(day) == 0 and len(hour) == 0 :
+        return None
+
+    today = datetime.date.today()
+    year = int(year[0] if len(year) > 0 else today.year)
+    month = int(month[0] if len(month) > 0 else today.month)
+    day = int(day[0] if len(day) > 0 else today.day)
+    hour = int(hour[0] if len(hour) > 0 else 0)
+    hour += 12 if len(pm) > 0 else 0
+    min = int(min[0] if len(min) > 0 else 0)
+
+    start_date = datetime.datetime(year, month, day, hour, min)
+    #print(str, start_date.strftime("%Y-%m-%d %H:%M:%S"))
+
+    return start_date
+
 def create_event(title, start_time_str, duration=None, attendees=None, description=None, location=None):
-    start_time_str = start_time_str.replace(u'\xa0', "").replace(" ", "").replace("년", "-").replace("월", "-").replace("일", " ").replace("시",":").replace("분","")
-    matches = list(datefinder.find_dates(start_time_str))
-    
+    start_time = parse_time(start_time_str)
+
     if duration is None :
         duration = 1
 
-    if len(matches):
-        start_time = matches[0]
+    if start_time is not None :
         end_time = start_time + datetime.timedelta(hours=duration)
 
     if attendees is None :
@@ -117,40 +140,34 @@ def create_event(title, start_time_str, duration=None, attendees=None, descripti
 
     timezone = 'Asia/Seoul'  # enter your timezone
 
-    event = {
-        'summary': title,
-        'location': location,
-        'description': description,
-        'start': {
+    event = {}
+
+    event['summary'] = title
+    event['location'] = location
+    event['description'] = description
+    event['start'] =  {
             'dateTime': start_time.strftime("%Y-%m-%dT%H:%M:%S"),
             'timeZone': timezone,
-        },
-        'end': {
+        }
+    event['end'] = {
             'dateTime': end_time.strftime("%Y-%m-%dT%H:%M:%S"),
             'timeZone': timezone,
-        },
-        'attendees': [
-            {'email': attendees},
-        ],
-        'reminders': {
-            'useDefault': False,
-            'overrides': [
-                {'method': 'email', 'minutes': 24 * 60},
-                {'method': 'popup', 'minutes': 10},
-            ],
-        },
-    }
+        }
+
+    if attendees is not None :
+        event['attendees'] =  [{'email': attendees}]
 
     return event
 
+
 def parse_info_from_gmail(msg) :
-    pattern = {"제목;": "title",
-               "주제;": "title",
-               "장소;": "location",
-               "설명;": "description",
-               "시간;": "start_time",
-               "일시;": "start_time",
-               "기간;": "duration"
+    pattern = {"제목:": "title",
+               "주제:": "title",
+               "장소:": "location",
+               "설명:": "description",
+               "시간:": "start_time",
+               "일시:": "start_time",
+               "기간:": "duration"
                }
 
     info = dict()
@@ -160,11 +177,10 @@ def parse_info_from_gmail(msg) :
         msg = base64.urlsafe_b64decode(d)
         text = str(msg, 'utf-8')
         text_list = text.split('\n')
-        for t in text_list:
-
+        for line in text_list:
             for key, val in pattern.items():
-                if key in t :
-                    s = t.split(key)
+                if key in line :
+                    s = line.split(key)
                     info[val] = s[1].replace("\r","").replace("\n","").strip()
 
     return info
@@ -191,12 +207,11 @@ def main():
             subject = [i['value'] for i in headers if i["name"] == "Subject"]
 
             ## check some pattern for calendar event
-            if not "!!일정!!" in subject[0] :
+            if not CALENDAR_EVENT_SUBJECT in subject[0] :
                 continue
 
             # title, start_time, end_time, location, description = parse_info_from_gmail(msg)
             info = parse_info_from_gmail(msg)
-            print(info)
 
             ## create calendar event based on gmail message
             event = create_event(info.get('title'), info.get('start_time'), info.get('duration'),
@@ -204,7 +219,7 @@ def main():
             try:
                 calendar_service.events().insert(calendarId='primary', body=event, sendNotifications=True).execute()
             except Exception as e:
-                print('An error occurred', e)
+                print('An error occurred #1', e)
                 continue
 
             ## change label of gmail message (UNREAD -> READ)
@@ -217,6 +232,18 @@ def main():
 
         time.sleep(10)
 
+def test_parse_time() :
+    test_str = ["2019년 5월 24일",
+                "2019년 5월 24일 2시 30분",
+                " 2020년 1월3일 2시",
+                "2020년 1월 3일 2시 ",
+                "2020년 1월 5일 오후 2시",
+                "2월 3일 오후 2시",
+                "3일 오후 2시",
+                "오늘 오후 2시"]
+    for str in test_str :
+        parse_time(str)
 
 if __name__ == '__main__':
     main()
+
