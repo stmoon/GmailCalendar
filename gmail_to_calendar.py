@@ -103,6 +103,9 @@ def find_data(dictionary, key_to_find, depth=0, result=None):
 
 
 def parse_time(str) :
+    if str is None :
+        return None
+
     year = re.findall('\s*(\d{1,4})년',str)
     month = re.findall('\s*(\d{1,2})월', str)
     day = re.findall('\s*(\d{1,2})일', str)
@@ -134,6 +137,8 @@ def create_event(title, start_time_str, duration=None, attendees=None, descripti
 
     if start_time is not None :
         end_time = start_time + datetime.timedelta(hours=duration)
+    else :
+        return None
 
     if attendees is None :
         attendees = "munhoney@gmail.com"
@@ -167,6 +172,7 @@ def parse_info_from_gmail(msg) :
                "설명:": "description",
                "시간:": "start_time",
                "일시:": "start_time",
+               "일정:": "start_time",
                "기간:": "duration"
                }
 
@@ -212,10 +218,15 @@ def main():
 
             # title, start_time, end_time, location, description = parse_info_from_gmail(msg)
             info = parse_info_from_gmail(msg)
+            print(info)
 
             ## create calendar event based on gmail message
             event = create_event(info.get('title'), info.get('start_time'), info.get('duration'),
                                 info.get('attendee'), info.get('description'), info.get('location'))
+            if event is None :
+                time.sleep(10)
+                continue
+
             try:
                 calendar_service.events().insert(calendarId='primary', body=event, sendNotifications=True).execute()
             except Exception as e:
@@ -229,6 +240,8 @@ def main():
             except errors.HttpError as error:
                 print('An error occurred #2', error)
                 continue
+
+            print("CREATE EVENT: ", info)
 
         time.sleep(10)
 
