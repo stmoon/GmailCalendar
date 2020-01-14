@@ -166,14 +166,14 @@ def create_event(title, start_time_str, duration=None, attendees=None, descripti
 
 
 def parse_info_from_gmail(msg) :
-    pattern = {"제목:": "title",
-               "주제:": "title",
-               "장소:": "location",
-               "설명:": "description",
-               "시간:": "start_time",
-               "일시:": "start_time",
-               "일정:": "start_time",
-               "기간:": "duration"
+    pattern = {"제목": "title",
+               "주제": "title",
+               "장소": "location",
+               "설명": "description",
+               "시간": "start_time",
+               "일시": "start_time",
+               "일정": "start_time",
+               "기간": "duration"
                }
 
     info = dict()
@@ -186,8 +186,10 @@ def parse_info_from_gmail(msg) :
         for line in text_list:
             for key, val in pattern.items():
                 if key in line :
-                    s = line.split(key)
-                    info[val] = s[1].replace("\r","").replace("\n","").strip()
+                    regstr = "{}\s*:\s*(.*)".format(key)
+                    s = re.findall(regstr, line)
+                    if len(s) > 0 :
+                        info[val] = s[0].replace("\r","").replace("\n","").strip()
 
     return info
 
@@ -224,6 +226,7 @@ def main():
             event = create_event(info.get('title'), info.get('start_time'), info.get('duration'),
                                 info.get('attendee'), info.get('description'), info.get('location'))
             if event is None :
+                print("ERROR: Event type is wrong", event)
                 time.sleep(10)
                 continue
 
