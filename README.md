@@ -2,7 +2,13 @@
 
 Google calendar event generation program based on gmail message
 
+## Install
+it runs in python 3.6
 
+pip install google-api-python-client
+pip install google-auth-oauthlib==0.4.1
+
+## How to use it
 Google support the automatic calendar event generation mode already. However this function has limitations until now. 
 In addition, 
 
