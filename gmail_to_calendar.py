@@ -185,7 +185,7 @@ def parse_info_from_gmail(msg) :
         text_list = text.split('\n')
         for line in text_list:
             for key, val in pattern.items():
-                if key in line :
+                if key in line and not val in info :
                     regstr = "{}\s*:\s*(.*)".format(key)
                     s = re.findall(regstr, line)
                     if len(s) > 0 :
