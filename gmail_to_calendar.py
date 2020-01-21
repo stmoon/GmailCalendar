@@ -189,6 +189,7 @@ def parse_info_from_gmail(msg) :
                     regstr = "{}\s*:\s*(.*)".format(key)
                     s = re.findall(regstr, line)
                     if len(s) > 0 :
+                        #print(val, s[0], line)
                         info[val] = s[0].replace("\r","").replace("\n","").strip()
 
     return info
@@ -204,23 +205,31 @@ def main():
     while (True) :
 
         ## read gmail message list
-        results = gmail_service.users().messages().list(userId='me', labelIds=['UNREAD', 'INBOX']).execute()
-        messages = results.get('messages', [])
+        try :
+            results = gmail_service.users().messages().list(userId='me', labelIds=['UNREAD', 'INBOX']).execute()
+            messages = results.get('messages', [])
+        except Exception as e:
+            time.sleep(10)
+            continue
 
         for message in messages:
+            
             ## read gmail message
-            msg = gmail_service.users().messages().get(userId='me', id=message['id']).execute()
+            try :
+                msg = gmail_service.users().messages().get(userId='me', id=message['id']).execute()
+            except Exception as e:
+                print('Error: while geting message', e)
 
             headers = msg["payload"]["headers"]
             subject = [i['value'] for i in headers if i["name"] == "Subject"]
 
             ## check some pattern for calendar event
             if not CALENDAR_EVENT_SUBJECT in subject[0] :
+                time.sleep(10)
                 continue
 
             # title, start_time, end_time, location, description = parse_info_from_gmail(msg)
             info = parse_info_from_gmail(msg)
-            print(info)
 
             ## create calendar event based on gmail message
             event = create_event(info.get('title'), info.get('start_time'), info.get('duration'),
